@@ -6,6 +6,7 @@ import Output
 import time
 from Order import Order
 import random
+import numpy.random
 
 stop = False
 
@@ -60,19 +61,29 @@ class Controler(threading.Thread):
             command = input("commande : ").split()
             if len(command) > 0:
                 if command[0] == "order":
-                    start = time.time() + float(command[2])
+                    start = float(time.time()) + float(command[2])
                     end = start + float(command[3])
                     order = Order(float(command[1]), start, end, time.time())
                     lock.acquire(1)
                     Agent.send_order(order)
                     lock.release()
-
+                if command[0] == "go":
+                    for i in range(10):
+                        start = float(time.time()) + float(command[2])
+                        end = start + float(command[3])
+                        order = Order(float(command[1]), start, end, time.time())
+                        lock.acquire(1)
+                        Agent.send_order(order)
+                        lock.release()
+                        time.sleep(float(command[2]) + float(command[3]) + 10)
 
 lock = threading.Lock()
 nbAgents = 100
 b_flex = 100
+probs = numpy.random.exponential(0.5, nbAgents)
+M = max(probs)
 for i in range(0, nbAgents):
-    Agent.Agent(b_flex)
+    Agent.Agent(b_flex, probs[i] / M)
 plot = Output.PlotOutput((nbAgents + 1) * b_flex)
 looper = Looper()
 looper.start()

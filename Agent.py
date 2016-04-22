@@ -19,9 +19,10 @@ class Agent:
     agentList = []
     t_wait = 1
 
-    def __init__(self, base_flex):
+    def __init__(self, base_flex, prob):
         self.id = Agent.lastId
-        self.flex = base_flex  # random.randrange(100)
+        self.base_flex = base_flex
+        self.flex = self.base_flex  # random.randrange(100)
         self.x_max = self.flex
         self.x = self.x_max
         self.old_x = self.x
@@ -44,35 +45,46 @@ class Agent:
         self.coefs = {F: 0.5, C: 0.4, T: 0.1}
         self.hist = {F: [], C: [], T: []}
         self.connect = 10
+        self.fail_prob = prob
+        self.fail = False
         Agent.agentList.append(self)
         Agent.lastId += 1
 
-    def run(self):
+    def run(self, t):
         if self.order is not None and abs((self.infos[AGG].result() / self.order.Q) - 1) >= 0.0:  # if crossed
-            if time.time() - self.cnt >= Agent.t_wait:  # filtre passe-bas
+            if t - self.cnt >= Agent.t_wait:  # filtre passe-bas
                 # print(self.order.Q, " ", self.infos[AGG].result())
                 self.x += (self.order.Q - self.infos[AGG].result()) * self.x / self.infos[AGG].result()  # MAJ
-                self.cnt = time.time()
+                self.cnt = t
         else:
-            self.cnt = time.time()
+            self.cnt = t
         if self.x >= self.x_max:
             self.x_max += (self.flex - self.x_max) * 0.5
         self.x_max = min(self.x_max, self.flex)
         self.x = min(self.x, self.x_max)
-        if self.mode == 1:
-            if self.order.td <= time.time():
-                self.obj = self.x
-                self.stats = [self.x]
-                self.mode = 2
+        if self.mode == 1 and self.order.td <= t:
+            # Départ effacement
+            self.obj = self.x
+            self.stats = [self.x]
+            self.mode = 2
         if self.mode == 2:
             self.stats.append(self.x)
             self.conso = self.base_conso - self.x
-            if self.order.tf < time.time():
+            ti = t - self.order.td
+            l = self.order.tf - self.order.td
+            if not self.fail:
+                r = random.random()
+                g = 6 * self.fail_prob * ti * ti / (l * (l + 1) * (2 * l + 1))
+                self.fail = r < g
+                if self.fail:
+                    self.flex *= 0.5
+            if self.order.tf <= t:  # Fin effacement
                 self.order = None
                 self.evaluate()
                 self.mode = 3
                 self.conso = self.base_conso
-                self.cnt2 = time.time()
+                self.flex = self.base_flex
+                self.cnt2 = t
         if self.mode == 3:
             if time.time() - self.cnt2 >= Agent.t_wait:
                 if self.infos[MAX_CAP].result() - self.infos[MIN_CAP].result() != 0:
@@ -80,10 +92,10 @@ class Agent:
                         self.infos[MAX_CAP].result() - self.infos[MIN_CAP].result())
                     self.note = self.coefs[F] * self.eval[F] + self.coefs[C] * self.eval[C] + self.coefs[T] * self.eval[
                         T]
-                self.infos[NOTE_MAX].update([self.note])
+                self.infos[NOTE_MAX].update([Agregate(AgType.MAX, self.note)])
                 self.mode = 0
             else:
-                self.cnt2 = time.time()
+                self.cnt2 = t
         self.push_sum()
 
     def push_sum(self):
@@ -124,6 +136,7 @@ class Agent:
             self.x_max = self.note * self.flex / self.infos[NOTE_MAX].result()
             self.x = self.x_max
             self.mode = 1
+            self.fail = False
 
 
 def send(m, j=1):

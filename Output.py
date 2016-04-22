@@ -94,7 +94,7 @@ class PlotOutput:
             self.percentlines[k].set_ydata(v)
 
         self.monitor.relim()
-        self.monitor.autoscale_view(True, False, True)
+        self.monitor.autoscale_view(True, True, True)
         #plt.xlim(xmin=0)
         plt.show()
         plt.pause(0.001)
