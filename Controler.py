@@ -26,6 +26,7 @@ class Looper(threading.Thread):
         threading.Thread.__init__(self)
 
     def run(self):
+        counter = 0
         while not stop:
             time.sleep(0.01)
             lock.acquire()
@@ -38,7 +39,7 @@ class Looper(threading.Thread):
             Looper.mode2 = 0
             Looper.mode3 = 0
             for a in Agent.Agent.agentList:
-                a.run()
+                a.run(time.time())
                 Looper.total_flex += a.flex
                 Looper.total_x += a.x
                 Looper.total_x_max += a.x_max
@@ -48,6 +49,7 @@ class Looper(threading.Thread):
                 Looper.mode2 += a.mode == 2
                 Looper.mode3 += a.mode == 3
             lock.release()
+            counter += 1
 
 
 class Controler(threading.Thread):
@@ -95,7 +97,7 @@ while not stop:
     time.sleep(0.5)
     lock.acquire(1)
     graph = {"flex": Looper.total_flex, "x": Looper.total_x, "x_max": Looper.total_x_max,
-             "test": random.choice(Agent.Agent.agentList).infos[Agent.AGG].result(), "conso": Looper.total_conso * 0.25}
+             "test": random.choice(Agent.Agent.agentList).data[Agent.AGG].result(), "conso": Looper.total_conso * 0.25}
     percent = {"mode 0": Looper.mode0 * coef, "mode 1": Looper.mode1 * coef, "mode 2": Looper.mode2 * coef,
                "mode 3": Looper.mode3 * coef}
     plot.write(counter, graph, percent)

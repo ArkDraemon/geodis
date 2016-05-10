@@ -34,6 +34,18 @@ class Agregate:
                 if self.val > a.val:
                     self.val = a.val
 
+    def self_update(self, value):
+        if value is None:
+            return
+        if self.type == AgType.SUM or self.type == AgType.AVG or self.type == AgType.CNT:
+            self.val += value
+        if self.type == AgType.MAX:
+            if self.val < value:
+                self.val = value
+        if self.type == AgType.MIN:
+            if self.val > value:
+                self.val = value
+
     def message(self, flag, j=1):
         if self.type == AgType.SUM or self.type == AgType.AVG or self.type == AgType.CNT:
             return Message.Message(Agregate(self.type, self.val / (j + 1), self.weight / (j + 1)), flag)
