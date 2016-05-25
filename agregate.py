@@ -59,3 +59,4 @@ class AgType:
     MAX = 2
     MIN = 3
     CNT = 4
+    COM = 5

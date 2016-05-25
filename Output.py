@@ -25,10 +25,12 @@ models.
 """
 from collections import deque
 from abc import ABCMeta, abstractmethod
+import csv
 # Try to import matplotlib, but we don't have to.
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+
 matplotlib.use('tkagg')
 
 WINDOW = 100
@@ -57,10 +59,16 @@ class PlotOutput:
         plt.ylabel("%")
         plt.xlabel("steps")
         plt.tight_layout()
+        name = "test"
+        outputfilename = "output/%s_out.csv" % name
+        print("Preparing to output %s data to %s" % (name, outputfilename))
+        self.outputfile = open(outputfilename, "w")
+        self.outputWriter = csv.writer(self.outputfile)
 
     def initializelines(self, columns, percent):
         self.date = deque([0], maxlen=WINDOW)
         plt.legend([k for k in columns])
+        self.outputWriter.writerow(["t"] + [k for k in columns] + [k for k in percent])
         for k in columns:
             self.actualValues[k] = deque([0.0], maxlen=WINDOW)
             self.actualLines[k], = self.graph.plot(self.date, self.actualValues[k], label=k)
@@ -78,27 +86,31 @@ class PlotOutput:
             self.initializelines(columns, percent)
 
         self.date.append(time)
+        line = []
         for k, v in self.actualValues.items():
             v.append(columns[k])
             # Update data
             self.actualLines[k].set_xdata(self.date)
             self.actualLines[k].set_ydata(v)
+            line.append(columns[k])
 
         self.graph.relim()
         self.graph.autoscale_view(True, True, True)
-
         for k, v in self.actualPercent.items():
             v.append(percent[k])
+            line.append(percent[k])
             # Update data
             self.percentlines[k].set_xdata(self.date)
             self.percentlines[k].set_ydata(v)
 
+        outputrow = [time] + line
+        self.outputWriter.writerow(outputrow)
         self.monitor.relim()
         self.monitor.autoscale_view(True, True, True)
-        #plt.xlim(xmin=0)
         plt.show()
         plt.pause(0.001)
 
     def close(self):
+        self.outputfile.close()
         plt.ioff()
         plt.show()
