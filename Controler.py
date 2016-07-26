@@ -1,13 +1,15 @@
 #!/usr/bin/python
 
 import Agent
+from agregate import Agregate
+from agregate import AgType
 import threading
 import Output
 import time
 from Order import Order
 import Log
 import random
-import numpy.random
+import numpy
 
 stop = False
 
@@ -72,7 +74,7 @@ class Controler(threading.Thread):
                     end = start + float(command[3])
                     order = Order(float(command[1]), start, end, time.time())
                     lock.acquire(1)
-                    Agent.send_order(order)
+                    Agent.send({"order": Agregate(AgType.COM, order)})
                     lock.release()
                 if command[0] == "go":
                     for i in range(60):
@@ -81,7 +83,7 @@ class Controler(threading.Thread):
                         end = start + float(command[3])
                         order = Order(float(command[1]), start, end, time.time())
                         lock.acquire(1)
-                        Agent.send_order(order)
+                        Agent.send({"ORDER": Agregate(AgType.COM, order)})
                         lock.release()
                         time.sleep(float(command[2]) + float(command[3]) + 3)
                     stop = True
@@ -98,23 +100,27 @@ for i in range(0, nbAgents):
     f = random.choice(b_flex)
     Agent.Agent(f, min(probs[i], 1))
     F += f
-plot = Log.CsvOuput()  #Output.PlotOutput(F + 1000) #  Log.CsvOuput()  #
+plot = Output.PlotOutput(F + 1000) #  Log.CsvOuput()  #
 looper = Looper()
 looper.start()
 prompt = Controler()
 prompt.start()
 coef = 100 * nbAgents
 counter = 0
-while prompt.is_alive():
+it_max = 200
+tab = numpy.empty((it_max,6))
+for i in range(it_max):
     time.sleep(0.5)
     lock.acquire(1)
     graph = {"flex": Looper.total_flex, "x": Looper.total_x, "x_max": Looper.total_x_max,
-             "conso": Looper.total_conso * 0.25, "fail": Looper.fail, "ratio": Looper.fail / looper.total_flex}
+             "conso": Looper.total_conso * 0.25, "fail": Looper.fail, "ratio": Looper.fail / looper.total_flex, "test": random.choice(Agent.Agent.agentList).data["flex"].result()}
+    # tab[i] = []
     percent = {"mode 0": Looper.mode0 * coef, "mode 1": Looper.mode1 * coef, "mode 2": Looper.mode2 * coef,
                "mode 3": Looper.mode3 * coef}
     plot.write(counter, graph, percent)
     lock.release()
     counter += 1
+numpy.save("test.npy", tab)
 looper.join(1)
 print("stop")
 plot.close()

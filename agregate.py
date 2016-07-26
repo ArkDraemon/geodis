@@ -12,7 +12,7 @@ class Agregate:
             if self.weight == 0:
                 return None
             return self.val / self.weight
-        if self.type == AgType.MAX or self.type == AgType.MIN:
+        if self.type == AgType.MAX or self.type == AgType.MIN or self.type == AgType.COM:
             return self.val
 
     def update(self, inbox):
@@ -33,6 +33,11 @@ class Agregate:
                 a = inbox.pop()
                 if self.val > a.val:
                     self.val = a.val
+        if self.type == AgType.COM:
+            while inbox:
+                a = inbox.pop()
+                if self.val.t < a.val.t:
+                    self.val = a.val
 
     def self_update(self, value):
         if value is None:
@@ -46,11 +51,11 @@ class Agregate:
             if self.val > value:
                 self.val = value
 
-    def message(self, flag, j=1):
+    def message(self, j):
         if self.type == AgType.SUM or self.type == AgType.AVG or self.type == AgType.CNT:
-            return Message.Message(Agregate(self.type, self.val / (j + 1), self.weight / (j + 1)), flag)
-        if self.type == AgType.MAX or self.type == AgType.MIN:
-            return Message.Message(Agregate(self.type, self.val, self.weight), flag)
+            return Agregate(self.type, self.val / (j + 1), self.weight / (j + 1))
+        else:
+            return Agregate(self.type, self.val, self.weight)
 
 
 class AgType:
