@@ -1,8 +1,8 @@
 #!/usr/bin/python
 
 import Agent
-from agregate import Agregate
-from agregate import AgType
+from Agregate import Agregate
+from Agregate import AgType
 import threading
 import Output
 import time

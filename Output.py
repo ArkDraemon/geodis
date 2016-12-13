@@ -28,18 +28,20 @@ from abc import ABCMeta, abstractmethod
 import csv
 # Try to import matplotlib, but we don't have to.
 import matplotlib
+matplotlib.use('tkagg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-matplotlib.use('tkagg')
 
 WINDOW = 100
 
 
 class PlotOutput:
-    def __init__(self, ylim):
+
+    def __init__(self, ylim, w):
         # Turn matplotlib interactive mode on.
         plt.ion()
+        self.write = w
         self.date = []
         self.actualValues = {}
         self.actualPercent = {}
@@ -60,15 +62,17 @@ class PlotOutput:
         plt.xlabel("steps")
         plt.tight_layout()
         name = "test"
-        outputfilename = "output/%s_out.csv" % name
-        print("Preparing to output %s data to %s" % (name, outputfilename))
-        self.outputfile = open(outputfilename, "w")
-        self.outputWriter = csv.writer(self.outputfile)
+        if self.write:
+            outputfilename = "output/%s_out.csv" % name
+            print("Preparing to output %s data to %s" % (name, outputfilename))
+            self.outputfile = open(outputfilename, "w")
+            self.outputWriter = csv.writer(self.outputfile)
 
     def initializelines(self, columns, percent):
         self.date = deque([0], maxlen=WINDOW)
         plt.legend([k for k in columns])
-        self.outputWriter.writerow(["t"] + [k for k in columns] + [k for k in percent])
+        if self.write:
+            self.outputWriter.writerow(["t"] + [k for k in columns] + [k for k in percent])
         for k in columns:
             self.actualValues[k] = deque([0.0], maxlen=WINDOW)
             self.actualLines[k], = self.graph.plot(self.date, self.actualValues[k], label=k)
@@ -103,14 +107,15 @@ class PlotOutput:
             self.percentlines[k].set_xdata(self.date)
             self.percentlines[k].set_ydata(v)
 
-        outputrow = [time] + line
-        self.outputWriter.writerow(outputrow)
+        if self.write:
+            self.outputWriter.writerow([time] + line)
         self.monitor.relim()
         self.monitor.autoscale_view(True, True, True)
         plt.show()
         plt.pause(0.001)
 
     def close(self):
-        self.outputfile.close()
+        if self.write:
+            self.outputfile.close()
         plt.ioff()
         plt.show()
