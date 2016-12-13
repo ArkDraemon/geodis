@@ -11,7 +11,7 @@ MAX_CAP = "max_cap"
 NOTE_MAX = "note_max"
 MAX_FLEX = "max_flex"
 MAX_DEV = "max_deviation"
-F = "f"
+DEV = "dev"
 C = "c"
 T = "t"
 CF = "k1"
@@ -47,9 +47,9 @@ class Agent:
         self.stats = dict()
         self.base_conso = base_flex
         self.conso = self.base_conso
-        self.coefs = {F: 0.6, C: 0.3, T: 0.1}
+        self.coefs = {DEV: 0.6, C: 0.3, T: 0.1}
         self.hist = []
-        self.connect = 10
+        self.connect = 3
         self.fail_prob = prob
         self.fail = 0
         self.obj = 0
@@ -62,6 +62,8 @@ class Agent:
     def run(self, t):
         start_time = time.time()
         time_table = []
+
+        # Receiving order
         if self.order is None and ORDER in self.data and self.data[ORDER].result().td > t:
             self.order = o = self.data[ORDER].result()  # load order
             send({ORDER: self.data[ORDER]}, self.connect)  # propagate order
@@ -78,9 +80,12 @@ class Agent:
                     self.failing_point = o.td + (o.tf - o.td) * pow(random.random(), 1.0 / 3.0)
                     # self.failing_point = o.td + (o.tf - o.td) * (1 - pow(random.random(), 1.0 / 3.0))
                     # self.failing_point = o.td + (o.tf - o.td) * pow(random.random(), 1.0 / 3.0)
-        if self.order is not None:  # if shedding going on (or preparing)
+
+        # if shedding going on (or preparing)
+        if self.mode > 0:
             if abs((self.data[SUM_PART].result() / self.order.Q) - 1) >= 1:  # if crossed
                 if t - self.cnt >= Agent.t_wait:  # filtre passe-bas
+                    print(t," crossing")
                     self.x += (self.order.Q - self.data[SUM_PART].result()) * self.x / self.data[
                         SUM_PART].result()  # MAJ
                     self.cnt = t  # initialize low-pass
@@ -93,6 +98,7 @@ class Agent:
             self.x_max += (self.flex - self.x_max) * 0.5  # update virtual limit
         self.x_max = min(self.x_max, self.flex)  # limit virtual limit by total flex
         self.x = min(self.x, self.x_max)  # limit engaged flex by virtual limit
+
         if self.mode == 2:  # during event
             if self.order.tf <= t:  # Fin effacement
                 self.evaluate()
@@ -100,19 +106,20 @@ class Agent:
                 self.mode = 0
                 self.conso = self.base_conso
                 self.flex = self.base_flex
-                self.x_max = self.base_flex
-                self.x = self.x_max
+                #self.x_max = self.base_flex
+                #self.x = self.x_max
                 self.fail = 0
             else:  # during event
                 self.stats[SUM_PART] += self.x
-                self.stats[SUM_DEV] += math.pow(self.obj - self.x, 2)
+                self.stats[SUM_DEV] += abs(self.obj - self.x)
                 self.stats[SUM_GLOB_DEV] += self.order.Q - self.data[SUM_PART].result()
                 self.stats[COUNTER] += 1
                 self.conso = self.base_conso - self.x  # update consumption
-                if self.failing_point is not None and t >= self.failing_point:  # if must fail now
-                    self.flex = 0  # set flexibility to 0
-                    self.failing_point = None
-                    self.fail = self.x
+                # if self.failing_point is not None and t >= self.failing_point:  # if must fail now
+                #     self.flex = 0  # set flexibility to 0
+                #     self.failing_point = None
+                #     self.fail = self.x
+
         if self.mode == 1 and self.order.td <= t:  # Départ effacement
             self.obj = self.x
             self.stats[SUM_PART] = self.x
@@ -121,7 +128,10 @@ class Agent:
             self.stats[COUNTER] = 1
             self.starting_point = self.data[SUM_PART].result()
             self.mode = 2
+
+
         self.data[SUM_PART].self_update(self.x - self.old_x)
+        #print(t, " ", self.x)
         self.old_x = self.x
         time_table.append(time.time() - start_time)
         self.push_sum()
@@ -152,13 +162,11 @@ class Agent:
         self.inbox.append(deepcopy(m))
 
     def evaluate(self):
-        f = math.sqrt(self.stats[SUM_DEV] / self.stats[COUNTER]) # average squared deviation from first commitment (obj)
-        c = self.stats[SUM_PART] / self.stats[COUNTER]
         t = (1 if self.x_max / self.flex > 0.9 else 0) if self.flex > 0 else 1
         # k1 = self.stats[SUM_GLOB_DEV] / self.stats[COUNTER]
         # k2 = (self.consensus_reached - self.order.t) / abs(self.starting_point - self.order.Q)
 
-        self.hist.append({F: f, C: c, T: t, CF: self.coefs[F], CC: self.coefs[C]})  # append latest stats
+        self.hist.append({DEV: self.stats[SUM_DEV], C: self.stats[SUM_PART], T: t, CF: self.coefs[DEV], CC: self.coefs[C]})  # append latest stats
         if len(self.hist) > HIST_SIZE:  # control history size
             self.hist.pop(0)
 
@@ -168,13 +176,13 @@ class Agent:
         # [{'f': 3, 'c': 4},{'f': 5, 'c': 2}] = {'f': 8, 'c': 6}
 
         self.data[MAX_CAP].self_update(averages[C])
-        self.data[MAX_DEV].self_update(averages[F])
+        self.data[MAX_DEV].self_update(averages[DEV])
 
-        reliability = 1 - ((averages[F] / self.data[MAX_DEV].result()) if self.data[MAX_DEV].result() > 0 else 0)
-        capacity = averages[C] * size / self.data[MAX_CAP].result()
+        reliability = 1 - ((averages[DEV] / self.data[MAX_DEV].result()) if self.data[MAX_DEV].result() > 0 else 0)
+        capacity = averages[C] / self.data[MAX_CAP].result()
         turnover = averages[T]
 
-        self.note = self.coefs[F] * reliability + self.coefs[C] * capacity + self.coefs[T] * turnover
+        self.note = self.coefs[DEV] * reliability + self.coefs[C] * capacity# + self.coefs[T] * turnover
 
         self.data[NOTE_MAX].self_update(self.note)
 
