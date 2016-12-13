@@ -3,8 +3,8 @@
 import Agent
 import os
 import sys
-from Agregate import Agregate
-from Agregate import AgType
+from Aggregate import Agregate
+from Aggregate import AgType
 import Output
 import time
 from Order import Order

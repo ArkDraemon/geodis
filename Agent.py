@@ -1,6 +1,6 @@
 import random
-from Agregate import Agregate
-from Agregate import AgType
+from Aggregate import Agregate
+from Aggregate import AgType
 import math
 import time
 from copy import deepcopy
