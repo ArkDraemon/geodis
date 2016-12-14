@@ -20,7 +20,8 @@ def progressBar(value, endvalue, run, it, event):
     arrow = '-' * int(round(percent * bar_length) - 1) + '>'
     spaces = ' ' * (bar_length - len(arrow))
 
-    sys.stdout.write("\rRound {0}: [{1}] {2}({3}%) - event {4}".format(run, arrow + spaces, it, int(round(percent * 100)), event))
+    sys.stdout.write(
+        "\rRound {0}: [{1}] {2}({3}%) - event {4}".format(run, arrow + spaces, it, int(round(percent * 100)), event))
     sys.stdout.flush()
 
 
@@ -33,8 +34,8 @@ probs = numpy.random.exponential(0.14, nb_agents)
 plot_on = False
 # plot_on = True
 nb_runs = 1
-nb_events = 30
-capacity = mean_flex * nb_agents * 0.5  # shedding capacity order (50% total flex)
+nb_events = 120
+capacity = mean_flex * nb_agents * 0.3  # shedding capacity order (50% total flex)
 dur_prep = 10  # nb ite before first event
 dur_delay = 20  # nb ite between message and start
 dur_shed = 20  # nb ite shedding
@@ -47,7 +48,7 @@ nb_data = len(legend)
 F = 0
 for i in range(0, nb_agents):
     f = random.choice(b_flex)
-    Agent.Agent(f, min(probs[i], 1, round(nb_agents/2)))
+    Agent.Agent(f, min(probs[i], 1, round(nb_agents / 2)))
     F += f
 if plot_on:
     plot = Output.PlotOutput(F + 1000, False)  # Log.CsvOuput()  #
@@ -110,13 +111,12 @@ for j in range(nb_runs):
             percent = {"mode 0": mode0 * coef, "mode 1": mode1 * coef, "mode 2": mode2 * coef}
             plot.write(i, graph, percent)
 
-
         detail[i] = [a.note for a in Agent.Agent.agentList]
         detail2[i] = [a.data["note_max"].result() for a in Agent.Agent.agentList]
-        tab[j][i] = [((1000 - total_x) / (2000 - total_flex) if total_flex != 2000 else 0), ((1000 - total_x) / (2000 - total_flex_w) if total_flex_w != 2000 else 0), total_x_max, total_conso]
+        tab[j][i] = [total_flex, total_x, total_x_max, total_conso]
+        # tab[j][i] = [((1000 - total_x) / (2000 - total_flex) if total_flex != 2000 else 0), ((1000 - total_x) / (2000 - total_flex_w) if total_flex_w != 2000 else 0), total_x_max, total_conso]
 
         # , fail, fail / total_flex, random.choice(Agent.Agent.agentList).data[ "flex"].result()]  # , mode0 * coef, mode1 * coef, mode2 * coef]
-
 
 dir_name = "np_out/"
 if not os.path.exists(dir_name):
@@ -127,14 +127,15 @@ name = dir_name + custom_file_name + time.strftime("%m-%d_%H:%M_") + str(nb_agen
 numpy.save(str(name + ".npy"), tab)
 # numpy.save(str(name + "_out.npy"), time_stat)
 plt.figure(1)
+plt.title("")
 plt.subplot(311)
 plt.plot(tab[0], label=legend)
 plt.legend(legend)
 plt.subplot(312)
-plt.plot(detail2)
+plt.plot(perf)
 plt.subplot(313)
 plt.plot(detail)
-#plt.axis([0, len(tab[0]), 0, mean_flex * nb_agents * 1.1])
+# plt.axis([0, len(tab[0]), 0, mean_flex * nb_agents * 1.1])
 
 # plt.subplot(312)
 # plt.plot([time_stat[i][0] for i in range(0, len(time_stat))])

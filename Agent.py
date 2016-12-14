@@ -16,7 +16,7 @@ C = "c"
 T = "t"
 CF = "k1"
 CC = "k2"
-HIST_SIZE = 10
+HIST_SIZE = 20
 SUM_DEV = "sum_dev"
 SUM_GLOB_DEV = "sum_global_deviation"
 COUNTER = "counter"
@@ -33,7 +33,7 @@ class Agent:
         self.x_max = self.flex
         self.x = self.x_max
         self.old_x = self.x
-        self.note = round(random.random(), 1)
+        self.note = round(random.random(), 3)
         self.data = dict()
         self.data[SUM_PART] = Agregate(AgType.SUM, self.x, 0, 1 if self.id == 0 else 0)
         self.data[MAX_FLEX] = Agregate(AgType.SUM, self.flex, 0, 1 if self.id == 0 else 0)
@@ -71,14 +71,14 @@ class Agent:
             if(self.data[NOTE_MAX].result() == 0):
                 self.x_max = self.flex
             else:
-                self.x_max = self.note * self.flex / self.data[NOTE_MAX].result()  # define virtual limit
+                self.x_max = self.flex # / self.data[NOTE_MAX].result()  # define virtual limit
             self.x = self.x_max  # set participation tout max possible
             self.mode = 1  # set shedding preparation on
             self.fail = False  # agent has not failed yet
             self.starting_point = self.data[SUM_PART].result()  # record starting time
             if random.random() < self.fail_prob:  # check if must fail
                 if self.base_flex < 1000:  # if mode "light"
-                    self.failing_point = o.td + (o.tf - o.td) * (1 - pow(random.random(), 1.0 / 3.0))
+                    self.failing_point = o.td + (o.tf - o.td) * 0.5 #(1 - pow(random.random(), 1.0 / 3.0))
                 else:  # if mode "heater"
                     self.failing_point = o.td + (o.tf - o.td) * pow(random.random(), 1.0 / 3.0)
                     # self.failing_point = o.td + (o.tf - o.td) * (1 - pow(random.random(), 1.0 / 3.0))
@@ -182,8 +182,8 @@ class Agent:
         #print(self.averages[DEV])
         #self.data[MAX_CAP].reset(self.order.tf)
         #self.data[MAX_CAP].self_update(self.averages[C])
-        self.data[MAX_DEV].reset(self.order.tf)
-        self.data[MAX_DEV].self_update(self.averages[DEV])
+        # self.data[MAX_DEV].reset(self.order.tf)
+        self.data[MAX_DEV].self_update(self.averages[DEV], self.order.tf)
 
 
     def evaluate(self):

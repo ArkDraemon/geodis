@@ -65,6 +65,8 @@ class Agregate:
 
     def self_update(self, value, date = None):
         self.maj = value
+        if date is not None:
+            self.date = date
 
     def reset(self, date):
         self.date = date
