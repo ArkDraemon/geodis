@@ -7,6 +7,7 @@ class Agregate:
         self.val = s
         self.weight = w
         self.date = d
+        self.maj = None
 
     def result(self):
         if self.type == AgType.SUM or self.type == AgType.AVG or self.type == AgType.CNT:
@@ -28,6 +29,9 @@ class Agregate:
                 if self.date == a.date:
                     self.val += a.val
                     self.weight += a.weight
+            if self.maj is not None:
+                self.val += self.maj
+                self.maj = None
         if self.type == AgType.MAX:
             while inbox:
                 a = inbox.pop()
@@ -36,6 +40,9 @@ class Agregate:
                 if self.date == a.date:
                     if self.val < a.val:
                         self.val = a.val
+            if self.maj is not None:
+                self.val = self.maj
+                self.maj = None
         if self.type == AgType.MIN:
             while inbox:
                 a = inbox.pop()
@@ -44,6 +51,9 @@ class Agregate:
                 if self.date == a.date:
                     if self.val > a.val:
                         self.val = a.val
+            if self.maj is not None and self.val > self.maj:
+                self.val = self.maj
+                self.maj = None
         if self.type == AgType.COM:
             while inbox:
                 a = inbox.pop()
@@ -53,20 +63,10 @@ class Agregate:
                     if self.val.t < a.val.t:
                         self.val = a.val
 
-    def self_update(self, value):
-        if value is None:
-            return
-        if self.type == AgType.SUM or self.type == AgType.AVG or self.type == AgType.CNT:
-            self.val += value
-        if self.type == AgType.MAX:
-            if self.val < value:
-                self.val = value
-        if self.type == AgType.MIN:
-            if self.val > value:
-                self.val = value
+    def self_update(self, value, date = None):
+        self.maj = value
 
-    def reset(self, value, date):
-        self.val = value
+    def reset(self, date):
         self.date = date
 
     def message(self, j):
