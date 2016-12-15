@@ -26,15 +26,15 @@ def progressBar(value, endvalue, run, it, event):
 
 
 custom_file_name = "SOA"
-nb_agents = 20
+nb_agents = 6
 b_flex = [100]  # [100, 200,    400, 500, 2000, 3000]
 mean_flex = sum(b_flex) / len(b_flex)
-probs = numpy.random.exponential(0.14, nb_agents)
+probs = [0,0,0,0,0,1,1,1,1,1]#numpy.random.exponential(0.14, nb_agents)
 
 plot_on = False
 # plot_on = True
 nb_runs = 1
-nb_events = 120
+nb_events = 40
 capacity = mean_flex * nb_agents * 0.3  # shedding capacity order (50% total flex)
 dur_prep = 10  # nb ite before first event
 dur_delay = 20  # nb ite between message and start
@@ -48,7 +48,7 @@ nb_data = len(legend)
 F = 0
 for i in range(0, nb_agents):
     f = random.choice(b_flex)
-    Agent.Agent(f, min(probs[i], 1, round(nb_agents / 2)))
+    Agent.Agent(f, min(probs[i], 1), round(nb_agents / 2))
     F += f
 if plot_on:
     plot = Output.PlotOutput(F + 1000, False)  # Log.CsvOuput()  #
@@ -56,7 +56,7 @@ coef = 100 * nb_agents
 
 tab = numpy.empty((nb_runs, nb_ite, nb_data))
 detail = numpy.empty((nb_ite, nb_agents))
-detail2 = numpy.empty((nb_ite, nb_agents))
+detail2 = numpy.empty((2, nb_ite, nb_agents))
 time_stat = numpy.empty((nb_ite, 2))
 perf = numpy.empty((nb_events, 1))
 
@@ -94,11 +94,12 @@ for j in range(nb_runs):
             mode1 += a.mode == 1
             mode2 += a.mode == 2
             mode3 += a.mode == 3
-            if a.mode == 2:
-                cumul_x += a.x
+            # if a.mode == 2:
+            #     cumul_x += a.x
+        cumul_x += fail
 
         if (i - dur_prep + dur_delay + dur_shed) % dur_total_event == 0:
-            perf[event_cnt] = cumul_x * 100 / (capacity * dur_shed)
+            perf[event_cnt] = cumul_x
             event_cnt += 1
 
         progressBar(i, nb_ite, j, i, event_cnt)
@@ -112,7 +113,8 @@ for j in range(nb_runs):
             plot.write(i, graph, percent)
 
         detail[i] = [a.note for a in Agent.Agent.agentList]
-        detail2[i] = [a.data["note_max"].result() for a in Agent.Agent.agentList]
+        detail2[0][i] = [a.averages["dev"] if a.averages is not None else 0 for a in Agent.Agent.agentList]
+        detail2[1][i] = [a.data["max_deviation"].result() for a in Agent.Agent.agentList]
         tab[j][i] = [total_flex, total_x, total_x_max, total_conso]
         # tab[j][i] = [((1000 - total_x) / (2000 - total_flex) if total_flex != 2000 else 0), ((1000 - total_x) / (2000 - total_flex_w) if total_flex_w != 2000 else 0), total_x_max, total_conso]
 
@@ -132,7 +134,8 @@ plt.subplot(311)
 plt.plot(tab[0], label=legend)
 plt.legend(legend)
 plt.subplot(312)
-plt.plot(perf)
+plt.plot(detail2[0])
+plt.plot(detail2[1])
 plt.subplot(313)
 plt.plot(detail)
 # plt.axis([0, len(tab[0]), 0, mean_flex * nb_agents * 1.1])
