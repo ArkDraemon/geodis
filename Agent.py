@@ -20,8 +20,9 @@ SUM_DEV = "sum_dev"
 SUM_GLOB_DEV = "sum_global_deviation"
 COUNTER = "counter"
 TAU = 0.1
-V = 0.5
+V = 0.3
 H = 0.01
+T_WAIT = 5
 
 def clear():
     Agent.lastId = 0
@@ -31,7 +32,6 @@ def clear():
 class Agent():
     lastId = 0
     agentList = []
-    t_wait = 3
 
     def __init__(self, base_flex, prob, connect = 10):
         self.id = Agent.lastId
@@ -51,9 +51,9 @@ class Agent():
         self.order = None
         self.cnt = self.mode = 0
         self.stats = dict()
-        self.base_conso = 1200
+        self.base_conso = base_flex + 100
         self.conso = self.base_conso
-        self.coefs = {DEV: 0.7, C: 0.3, T: 0.1}
+        self.coefs = {DEV: 1, C: 0.0, T: 0.0}
         self.hist = []
         self.connect = connect
         self.fail_prob = prob
@@ -63,6 +63,7 @@ class Agent():
         self.starting_point = None
         self.failing_point = None
         self.averages = None
+        self.reaction_t = None
         Agent.agentList.append(self)
         Agent.lastId += 1
 
@@ -75,13 +76,13 @@ class Agent():
             self.order = o = self.data[ORDER].result()  # load order
             send({ORDER: self.data[ORDER]}, self.connect)  # propagate order
             self.evaluate()
-            if self.data[NOTE_MAX].result() == 0:
-                self.x_max = self.flex
-            else:
-                self.x_max = self.flex * self.note # / self.data[NOTE_MAX].result()  # define virtual limit
-            if self.x <= 0 :
-                self.x = self.x_max  # set participation tout max possible
-
+            # if self.data[NOTE_MAX].result() == 0:
+            #     self.x_max = self.flex
+            # else:
+            #     self.x_max = self.flex * self.note # / self.data[NOTE_MAX].result()  # define virtual limit
+            # if self.x <= 0 :
+            #     self.x = self.x_max  # set participation tout max possible
+            self.reaction_t =  t# + (o.td - t) * (1 - (self.note / self.data[NOTE_MAX].result()))
             self.mode = 1  # set shedding preparation on
             self.fail = 0  # agent has not failed yet
             self.starting_point = self.data[SUM_PART].result()  # record starting time
@@ -92,25 +93,8 @@ class Agent():
                 # else:  # if mode "heater"
                 #     self.failing_point = o.td + (o.tf - o.td) * pow(random.random(), 1.0 / 3.0)
 
-        # if shedding going on (or preparing)
-        if self.mode > 0:
-            if abs(self.order.Q - self.data[SUM_PART].result()) / self.order.Q >= H:  # if crossed
-                if t - self.cnt >= Agent.t_wait:  # filtre passe-bas
-                    if self.data[SUM_PART].result() > 0 :
-                        self.x += (self.order.Q - self.data[SUM_PART].result()) * self.x / self.data[
-                            SUM_PART].result()  # MAJ
-                        self.cnt = t  # initialize low-pass
-                    # maybe set consensus_reached = None
-            else:
-                self.cnt = t  # not crossed, low-pass stays initialized
-                if self.consensus_reached is None:  # if consensus was not yet reached
-                    self.consensus_reached = t  # set consensus as reached at t
-        if self.x >= self.x_max:  # if more flexibility is needed
-            self.x_max += (self.flex - self.x_max) * V  # update virtual limit
-        self.x_max = min(self.x_max, self.flex)  # limit virtual limit by total flex
-        self.x = min(self.x, self.x_max)  # limit engaged flex by virtual limit
 
-        if self.mode == 2:  # during event
+        if self.mode == 3:  # during event
             if self.order.tf <= t:  # Fin effacement
                 self.pre_evaluate()
                 self.order = None
@@ -130,23 +114,47 @@ class Agent():
                     self.flex = 0  # set flexibility to 0
                     self.failing_point = None
                     self.fail = self.x
+                    self.x = 0
 
 
-        if self.mode == 1 and self.order.td <= t:  # Départ effacement
+        if self.mode == 2 and self.order.td <= t:  # Départ effacement
             self.obj = self.x
             #self.stats[SUM_PART] = self.x
             self.stats[SUM_DEV] = (self.obj - self.x)**2
             self.stats[SUM_GLOB_DEV] = self.order.Q - self.data[SUM_PART].result()
             self.stats[COUNTER] = 1
             self.starting_point = self.data[SUM_PART].result()
-            self.mode = 2
+            self.mode = 3
 
+        if self.mode == 1 and self.reaction_t <= t:
+            self.x_max = self.flex * self.note / self.data[NOTE_MAX].result()
+            if self.x <= 0:
+                self.x = self.x_max  # set participation to max possible
+            self.mode = 2
 
         self.data[SUM_PART].self_update(self.x - self.old_x)
         self.old_x = self.x
         time_table.append(time.time() - start_time)
         self.push_sum()
         time_table.append(time.time() - start_time)
+
+        # if shedding going on (or preparing)
+        if self.mode > 1:
+            if abs(self.order.Q - self.data[SUM_PART].result()) / self.order.Q >= H:  # if crossed
+                if t - self.cnt >= T_WAIT:  # filtre passe-bas
+                    if self.data[SUM_PART].result() > 0:
+                        self.x += (self.order.Q - self.data[SUM_PART].result()) * self.x / self.data[
+                            SUM_PART].result()  # MAJ
+                        self.cnt = t  # initialize low-pass
+                        # maybe set consensus_reached = None
+            else:
+                self.cnt = t  # not crossed, low-pass stays initialized
+                if self.consensus_reached is None:  # if consensus was not yet reached
+                    self.consensus_reached = t  # set consensus as reached at t
+        if self.x >= self.x_max:  # if more flexibility is needed
+            self.x_max += (self.flex - self.x_max) * V  # update virtual limit
+        self.x_max = min(self.x_max, self.flex)  # limit virtual limit by total flex
+        self.x = min(self.x, self.x_max)  # limit engaged flex by virtual limit
 
     def push_sum(self):
         box = {}  # for each aggregate, contain a temporally ordered list of values
@@ -176,7 +184,7 @@ class Agent():
         # k1 = self.stats[SUM_GLOB_DEV] / self.stats[COUNTER]
         # k2 = (self.consensus_reached - self.order.t) / abs(self.starting_point - self.order.Q)
 
-        deviation = self.stats[SUM_DEV]/self.obj**2 if self.obj > 0 else 0
+        deviation = self.stats[SUM_DEV]/self.obj if self.obj > 0 else 0
 
         self.hist.append({DEV: deviation, C: self.base_flex, T: turnover, CF: self.coefs[DEV],
                           CC: self.coefs[C]})  # append latest stats
@@ -207,7 +215,7 @@ class Agent():
             capacity = self.averages[C] / self.data[MAX_CAP].result()
             turnover = self.averages[T]
 
-            self.note = self.coefs[DEV] * reliability + self.coefs[C] * capacity# + self.coefs[T] * turnover
+            self.note = self.coefs[DEV] * reliability + self.coefs[C] * capacity + self.coefs[T] * turnover
 
             self.data[NOTE_MAX].self_update(self.note)
 

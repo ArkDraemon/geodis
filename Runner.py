@@ -29,17 +29,17 @@ legend = ["flex", "x", "x_max", "conso", "fail"]  # "fail", "ratio", "test"] #  
 # "flex", "x", "x_max", "conso", "fail",
 nb_data = len(legend)
 
-nb_agents = 24
-b_flex = [100]#, 200, 400, 500, 2000, 3000]
+nb_agents = 18
+b_flex = [100, 200, 400, 500, 2000, 3000]
 mean_flex = sum(b_flex) / len(b_flex)
 probs = [0,0.5] # numpy.random.exponential(0.14, nb_agents)
 
-nb_runs = 1
-nb_events = 40
+nb_runs = 5
+nb_events = 50
 capacity = mean_flex * nb_agents * 0.4  # shedding capacity order (50% total flex)
 dur_prep = 10  # nb ite before first event
-dur_delay = 10  # nb ite between message and start
-dur_shed = 10  # nb ite shedding
+dur_delay = 40  # nb ite between message and start
+dur_shed = 30  # nb ite shedding
 dur_recover = 5  # nb ite before next event
 nb_ite = dur_prep + (dur_delay + dur_shed + dur_recover) * nb_events
 
@@ -87,13 +87,12 @@ for j in range(nb_runs):
             total_x += a.x
             total_x_max += a.x_max
             total_conso += a.conso
-            detail[i][a.id] = a.data["flex"].weight
+            detail[i][a.id] = a.note
+            detail2[i][a.id] = a.x
         cumul_x += fail
 
-        if (i - dur_prep + dur_delay) % dur_total_event <= dur_shed:
-            tab_means[i][j] = max(capacity - total_x, 0)
-            if total_x < 0:
-                print(total_x)
+        if (i - dur_prep - dur_delay) % dur_total_event < dur_shed:
+            tab_means[i][j] = max(capacity - total_x, 0)# / (fail if fail > 0 else 1)
         else:
             tab_means[i][j] = 0
 
@@ -106,7 +105,7 @@ for j in range(nb_runs):
         #                 range(0, len(sum_time[0]))]
         tab[j][i] = [total_flex, total_x, total_x_max, total_conso, fail]
         # averages["dev"] if a.averages is not None else 0
-        # detail[i] = [a.note for a in Agent.Agent.agentList]
+        #detail[i] = [a.note for a in Agent.Agent.agentList]
         # a = Agent.Agent.agentList[0]
         # detail2[i] = [a.averages["dev"] if a.averages is not None else 0 for a in Agent.Agent.agentList]
 
@@ -124,14 +123,14 @@ numpy.save(str(name + ".npy"), tab)
 
 plt.figure(1)
 plt.title("")
-plt.subplot(211)
+plt.subplot(311)
 plt.plot(tab[0], label=legend)
 plt.legend(legend)
-plt.subplot(212)
-# plt.plot(tab_means, label=[i for i in range(nb_runs)])
+plt.subplot(312)
+plt.plot(tab_means, label=[i for i in range(nb_runs)])
 plt.plot(numpy.mean(tab_means, axis=1), label=nb_runs)
-# plt.legend([i for i in range(nb_runs)]+["avg"])
+plt.legend([i for i in range(nb_runs)]+["avg"])
 # plt.plot(detail)
-# plt.subplot(313)
-# plt.plot(detail2)
+plt.subplot(313)
+plt.plot(detail2)
 plt.show()
