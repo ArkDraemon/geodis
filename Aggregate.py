@@ -1,5 +1,3 @@
-import Message
-
 
 class Agregate:
     def __init__(self, t, s, d, w=0):
@@ -18,17 +16,22 @@ class Agregate:
             return self.val
 
     # update with a list of values
-    def update(self, inbox):
+    def update(self, inbox, t=None):
         if self.type == AgType.SUM or self.type == AgType.AVG or self.type == AgType.CNT:
             self.val = 0
             self.weight = 0
-            while inbox:
-                a = inbox.pop()
-                if self.date < a.date:
-                    self.date = a.date
-                if self.date == a.date:
+            size = len(inbox)
+
+            for i in range(size):
+                a = inbox.pop(0)
+                if a.date == t - 1:
                     self.val += a.val
                     self.weight += a.weight
+                else:
+                    if a.date != t:
+                        print(a.date, t)
+                    else:
+                        inbox.append(a)
             if self.maj is not None:
                 self.val += self.maj
                 self.maj = None
@@ -51,7 +54,7 @@ class Agregate:
                 if self.date == a.date:
                     if self.val > a.val:
                         self.val = a.val
-            if self.maj is not None and self.val > self.maj:
+            if self.maj is not None:
                 self.val = self.maj
                 self.maj = None
         if self.type == AgType.COM:
@@ -60,10 +63,9 @@ class Agregate:
                 if self.date < a.date:
                     self.date = a.date
                 if self.date == a.date:
-                    if self.val.t < a.val.t:
-                        self.val = a.val
+                    self.val = a.val
 
-    def self_update(self, value, date = None):
+    def self_update(self, value, date=None, weight=None):
         self.maj = value
         if date is not None:
             self.date = date
